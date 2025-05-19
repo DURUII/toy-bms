@@ -77,7 +77,7 @@ public class RuleServiceImpl implements RuleService, RuleFacade {
     public WarnRuleResponse updateRule(Long ruleId, WarnRuleRequest request) {
         // 1. 查找规则
         WarnRule rule = ruleRepository.findByIdWithItems(ruleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rule", ruleId.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("Rule", "id", ruleId.toString()));
 
         // 2. 获取电池类型
         BatteryType batteryType = getBatteryTypeByCode(request.getBatteryTypeCode());
@@ -117,7 +117,7 @@ public class RuleServiceImpl implements RuleService, RuleFacade {
     public void deleteRule(Long ruleId) {
         // 1. 查找规则
         WarnRule rule = ruleRepository.findById(ruleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rule", ruleId.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("Rule", "id", ruleId.toString()));
 
         // 2. 逻辑删除规则
         rule.setIsDelete(true);
@@ -134,7 +134,7 @@ public class RuleServiceImpl implements RuleService, RuleFacade {
     public WarnRuleResponse getRuleById(Long ruleId) {
         // 1. 查找规则
         WarnRule rule = ruleRepository.findByIdWithItems(ruleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rule", ruleId.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("Rule", "id", ruleId.toString()));
 
         // 2. 获取电池类型
         BatteryType batteryType = getBatteryTypeById(rule.getBatteryTypeId());
@@ -196,7 +196,7 @@ public class RuleServiceImpl implements RuleService, RuleFacade {
     @Cacheable(value = "rules", key = "'id:' + #ruleId")
     public WarnRule findRuleById(Long ruleId) {
         return ruleRepository.findByIdWithItems(ruleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rule", ruleId.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("Rule", "id", ruleId.toString()));
     }
 
     // 辅助方法
@@ -208,12 +208,12 @@ public class RuleServiceImpl implements RuleService, RuleFacade {
 
     private BatteryType getBatteryTypeByCode(String code) {
         return batteryTypeRepository.findByCode(code)
-                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", code));
+                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", "code", code));
     }
 
     private BatteryType getBatteryTypeById(Integer id) {
         return batteryTypeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", id.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", "id", id.toString()));
     }
 
     private WarnRuleResponse buildWarnRuleResponse(WarnRule rule, BatteryType batteryType) {

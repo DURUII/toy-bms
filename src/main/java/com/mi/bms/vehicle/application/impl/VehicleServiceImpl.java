@@ -65,7 +65,7 @@ public class VehicleServiceImpl implements VehicleService {
     @Transactional(readOnly = true)
     public VehicleResponse getVehicleById(String vid) {
         Vehicle vehicle = vehicleRepository.findById(vid)
-                .orElseThrow(() -> new ResourceNotFoundException("Vehicle", vid));
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle", "vid", vid));
 
         BatteryType batteryType = getBatteryTypeById(vehicle.getBatteryTypeId());
 
@@ -142,12 +142,12 @@ public class VehicleServiceImpl implements VehicleService {
 
     private BatteryType getBatteryTypeByCode(String code) {
         return batteryTypeRepository.findByCode(code)
-                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", code));
+                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", "code", code));
     }
 
     private BatteryType getBatteryTypeById(Integer id) {
         return batteryTypeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", id.toString()));
+                .orElseThrow(() -> new ResourceNotFoundException("BatteryType", "id", id.toString()));
     }
 
     private String generateVid() {

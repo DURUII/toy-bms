@@ -120,7 +120,11 @@ public class VehicleServiceTest {
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> vehicleService.createVehicle(vehicleRequest));
 
-        assertTrue(exception.getMessage().contains("BatteryType not found"));
+        // 仅检查异常消息是否包含关键词
+        assertNotNull(exception.getMessage());
+        assertTrue(exception.getMessage().contains("BatteryType"));
+        assertTrue(exception.getMessage().contains("code"));
+        assertTrue(exception.getMessage().contains(vehicleRequest.getBatteryTypeCode()));
 
         verify(vehicleRepository).existsByCarId(vehicleRequest.getCarId());
         verify(batteryTypeRepository).findByCode(vehicleRequest.getBatteryTypeCode());
@@ -155,7 +159,11 @@ public class VehicleServiceTest {
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> vehicleService.getVehicleById("nonexistent"));
 
-        assertTrue(exception.getMessage().contains("Vehicle not found"));
+        // 仅检查异常消息是否包含关键词
+        assertNotNull(exception.getMessage());
+        assertTrue(exception.getMessage().contains("Vehicle"));
+        assertTrue(exception.getMessage().contains("vid"));
+        assertTrue(exception.getMessage().contains("nonexistent"));
 
         verify(vehicleRepository).findById("nonexistent");
         verify(batteryTypeRepository, never()).findById(anyInt());
