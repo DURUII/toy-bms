@@ -1,0 +1,58 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: battery-management-system
+
+  # Database configuration
+  datasource:
+    url: jdbc:mysql://localhost:3306/bms?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # JPA configuration
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: validate # Just validate schema against database
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Redis configuration
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 10000
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1
+        max-idle: 8
+        min-idle: 0
+
+# RocketMQ configuration
+rocketmq:
+  name-server: localhost:9876
+  producer:
+    group: bms-producer-group
+    send-message-timeout: 3000
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.mi.bms: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Swagger configuration
+springfox:
+  documentation:
+    swagger:
+      v2:
+        path: /api-docs
