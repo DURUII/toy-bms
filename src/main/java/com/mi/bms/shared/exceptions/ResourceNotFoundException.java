@@ -1,16 +1,17 @@
 package com.mi.bms.shared.exceptions;
 
-public class ResourceNotFoundException extends BusinessException {
+import lombok.Getter;
 
-    public ResourceNotFoundException(String resource) {
-        super("NOT_FOUND", String.format("%s not found", resource));
-    }
+@Getter
+public class ResourceNotFoundException extends RuntimeException {
+    private final String resourceName;
+    private final String fieldName;
+    private final Object fieldValue;
 
-    public ResourceNotFoundException(String resource, String id) {
-        super("NOT_FOUND", String.format("%s with id %s not found", resource, id));
-    }
-
-    public ResourceNotFoundException(String resource, String field, String value) {
-        super("NOT_FOUND", String.format("%s with %s '%s' not found", resource, field, value));
+    public ResourceNotFoundException(String resourceName, String fieldName, Object fieldValue) {
+        super(String.format("%s not found with %s : '%s'", resourceName, fieldName, fieldValue));
+        this.resourceName = resourceName;
+        this.fieldName = fieldName;
+        this.fieldValue = fieldValue;
     }
 }

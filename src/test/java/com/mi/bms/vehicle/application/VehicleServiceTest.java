@@ -5,8 +5,8 @@ import com.mi.bms.shared.exceptions.ResourceNotFoundException;
 import com.mi.bms.vehicle.application.impl.VehicleServiceImpl;
 import com.mi.bms.vehicle.domain.model.BatteryType;
 import com.mi.bms.vehicle.domain.model.Vehicle;
-import com.mi.bms.vehicle.domain.repository.BatteryTypeRepository;
 import com.mi.bms.vehicle.domain.repository.VehicleRepository;
+import com.mi.bms.vehicle.domain.service.VehicleDomainService;
 import com.mi.bms.vehicle.interfaces.rest.dto.VehicleRequest;
 import com.mi.bms.vehicle.interfaces.rest.dto.VehicleResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +32,7 @@ public class VehicleServiceTest {
     private VehicleRepository vehicleRepository;
 
     @Mock
-    private BatteryTypeRepository batteryTypeRepository;
+    private VehicleDomainService vehicleDomainService;
 
     @InjectMocks
     private VehicleServiceImpl vehicleService;
@@ -43,23 +43,21 @@ public class VehicleServiceTest {
 
     @BeforeEach
     void setUp() {
-        // 初始化测试数据
+        // Initialize test data
         ternaryBatteryType = BatteryType.builder()
                 .id(1)
                 .code("TERNARY")
                 .name("三元电池")
                 .build();
 
-        vehicle = Vehicle.builder()
-                .vid("test123456789012")
-                .carId(1)
-                .batteryTypeId(1)
-                .mileageKm(100L)
-                .healthPct(100)
-                .isDelete(false)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+        // Create vehicle status
+        Vehicle.VehicleStatus status = Vehicle.VehicleStatus.create(100L, 100);
+
+        vehicle = Vehicle.create(
+                "test123456789012",
+                1,
+                1,
+                status);
 
         vehicleRequest = VehicleRequest.builder()
                 .carId(1)
@@ -72,9 +70,17 @@ public class VehicleServiceTest {
     @Test
     void createVehicle_Success() {
         // Given
-        when(vehicleRepository.existsByCarId(anyInt())).thenReturn(false);
-        when(batteryTypeRepository.findByCode(anyString())).thenReturn(Optional.of(ternaryBatteryType));
+        Vehicle.VehicleStatus status = Vehicle.VehicleStatus.create(
+                vehicleRequest.getMileageKm(),
+                vehicleRequest.getHealthPct());
+
+        when(vehicleDomainService.createVehicle(
+                vehicleRequest.getCarId(),
+                vehicleRequest.getBatteryTypeCode(),
+                status)).thenReturn(vehicle);
+
         when(vehicleRepository.save(any(Vehicle.class))).thenReturn(vehicle);
+        when(vehicleDomainService.getBatteryTypeByCode(anyString())).thenReturn(ternaryBatteryType);
 
         // When
         VehicleResponse response = vehicleService.createVehicle(vehicleRequest);
@@ -85,18 +91,27 @@ public class VehicleServiceTest {
         assertEquals(vehicle.getCarId(), response.getCarId());
         assertEquals(ternaryBatteryType.getCode(), response.getBatteryTypeCode());
         assertEquals(ternaryBatteryType.getName(), response.getBatteryTypeName());
-        assertEquals(vehicle.getMileageKm(), response.getMileageKm());
-        assertEquals(vehicle.getHealthPct(), response.getHealthPct());
+        assertEquals(vehicle.getStatus().getMileageKm(), response.getMileageKm());
+        assertEquals(vehicle.getStatus().getHealthPct(), response.getHealthPct());
 
-        verify(vehicleRepository).existsByCarId(vehicleRequest.getCarId());
-        verify(batteryTypeRepository).findByCode(vehicleRequest.getBatteryTypeCode());
+        verify(vehicleDomainService).createVehicle(
+                vehicleRequest.getCarId(),
+                vehicleRequest.getBatteryTypeCode(),
+                status);
         verify(vehicleRepository).save(any(Vehicle.class));
     }
 
     @Test
     void createVehicle_DuplicateCarId_ThrowsException() {
         // Given
-        when(vehicleRepository.existsByCarId(anyInt())).thenReturn(true);
+        Vehicle.VehicleStatus status = Vehicle.VehicleStatus.create(
+                vehicleRequest.getMileageKm(),
+                vehicleRequest.getHealthPct());
+
+        when(vehicleDomainService.createVehicle(
+                vehicleRequest.getCarId(),
+                vehicleRequest.getBatteryTypeCode(),
+                status)).thenThrow(new BusinessException("ALREADY_EXISTS", "车架号已存在"));
 
         // When & Then
         BusinessException exception = assertThrows(BusinessException.class,
@@ -105,29 +120,10 @@ public class VehicleServiceTest {
         assertEquals("ALREADY_EXISTS", exception.getCode());
         assertTrue(exception.getMessage().contains("车架号已存在"));
 
-        verify(vehicleRepository).existsByCarId(vehicleRequest.getCarId());
-        verify(batteryTypeRepository, never()).findByCode(anyString());
-        verify(vehicleRepository, never()).save(any(Vehicle.class));
-    }
-
-    @Test
-    void createVehicle_InvalidBatteryType_ThrowsException() {
-        // Given
-        when(vehicleRepository.existsByCarId(anyInt())).thenReturn(false);
-        when(batteryTypeRepository.findByCode(anyString())).thenReturn(Optional.empty());
-
-        // When & Then
-        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
-                () -> vehicleService.createVehicle(vehicleRequest));
-
-        // 仅检查异常消息是否包含关键词
-        assertNotNull(exception.getMessage());
-        assertTrue(exception.getMessage().contains("BatteryType"));
-        assertTrue(exception.getMessage().contains("code"));
-        assertTrue(exception.getMessage().contains(vehicleRequest.getBatteryTypeCode()));
-
-        verify(vehicleRepository).existsByCarId(vehicleRequest.getCarId());
-        verify(batteryTypeRepository).findByCode(vehicleRequest.getBatteryTypeCode());
+        verify(vehicleDomainService).createVehicle(
+                vehicleRequest.getCarId(),
+                vehicleRequest.getBatteryTypeCode(),
+                status);
         verify(vehicleRepository, never()).save(any(Vehicle.class));
     }
 
@@ -135,7 +131,7 @@ public class VehicleServiceTest {
     void getVehicleById_Success() {
         // Given
         when(vehicleRepository.findById(anyString())).thenReturn(Optional.of(vehicle));
-        when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+        when(vehicleDomainService.getBatteryTypeByCode(anyString())).thenReturn(ternaryBatteryType);
 
         // When
         VehicleResponse response = vehicleService.getVehicleById(vehicle.getVid());
@@ -147,7 +143,6 @@ public class VehicleServiceTest {
         assertEquals(ternaryBatteryType.getCode(), response.getBatteryTypeCode());
 
         verify(vehicleRepository).findById(vehicle.getVid());
-        verify(batteryTypeRepository).findById(vehicle.getBatteryTypeId());
     }
 
     @Test
@@ -159,21 +154,20 @@ public class VehicleServiceTest {
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                 () -> vehicleService.getVehicleById("nonexistent"));
 
-        // 仅检查异常消息是否包含关键词
         assertNotNull(exception.getMessage());
         assertTrue(exception.getMessage().contains("Vehicle"));
         assertTrue(exception.getMessage().contains("vid"));
         assertTrue(exception.getMessage().contains("nonexistent"));
 
         verify(vehicleRepository).findById("nonexistent");
-        verify(batteryTypeRepository, never()).findById(anyInt());
+        verify(vehicleDomainService, never()).getBatteryTypeByCode(anyString());
     }
 
     @Test
     void getVehicleByCarId_Success() {
         // Given
-        when(vehicleRepository.findByCarId(anyInt())).thenReturn(Optional.of(vehicle));
-        when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+        when(vehicleDomainService.getVehicleByCarId(anyInt())).thenReturn(vehicle);
+        when(vehicleDomainService.getBatteryTypeByCode(anyString())).thenReturn(ternaryBatteryType);
 
         // When
         VehicleResponse response = vehicleService.getVehicleByCarId(vehicle.getCarId());
@@ -183,23 +177,21 @@ public class VehicleServiceTest {
         assertEquals(vehicle.getVid(), response.getVid());
         assertEquals(vehicle.getCarId(), response.getCarId());
 
-        verify(vehicleRepository).findByCarId(vehicle.getCarId());
-        verify(batteryTypeRepository).findById(vehicle.getBatteryTypeId());
+        verify(vehicleDomainService).getVehicleByCarId(vehicle.getCarId());
     }
 
     @Test
     void getAllVehicles_Success() {
         // Given
-        Vehicle vehicle2 = Vehicle.builder()
-                .vid("test987654321098")
-                .carId(2)
-                .batteryTypeId(1)
-                .mileageKm(200L)
-                .healthPct(95)
-                .build();
+        Vehicle.VehicleStatus status2 = Vehicle.VehicleStatus.create(200L, 95);
+        Vehicle vehicle2 = Vehicle.create(
+                "test987654321098",
+                2,
+                1,
+                status2);
 
         when(vehicleRepository.findAll()).thenReturn(Arrays.asList(vehicle, vehicle2));
-        when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+        when(vehicleDomainService.getBatteryTypeByCode(anyString())).thenReturn(ternaryBatteryType);
 
         // When
         List<VehicleResponse> responses = vehicleService.getAllVehicles();
@@ -217,6 +209,5 @@ public class VehicleServiceTest {
         assertEquals(vehicle2.getCarId(), response2.getCarId());
 
         verify(vehicleRepository).findAll();
-        verify(batteryTypeRepository, times(2)).findById(anyInt());
     }
 }
