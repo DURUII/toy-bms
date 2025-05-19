@@ -30,7 +30,7 @@ public class RuleEngine {
         if (rules.isEmpty()) {
             log.warn("No rules found for ruleNo: {}, batteryTypeId: {}", ruleNo, batteryTypeId);
             return Optional.empty();
-        }
+    }
 
         // Evaluate each rule's conditions
         for (WarnRule rule : rules) {

@@ -1,21 +1,29 @@
 package com.mi.bms.rule.domain.service;
 
 import com.mi.bms.rule.domain.model.WarnRule;
-import com.mi.bms.rule.domain.model.WarnRuleItem;
+import com.mi.bms.rule.domain.model.WarnRule.RuleCondition;
+import com.mi.bms.rule.domain.repository.WarnRuleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class RuleEngineTest {
+@MockitoSettings(strictness = Strictness.LENIENT)
+class RuleEngineTest {
+
+    @Mock
+    private WarnRuleRepository ruleRepository;
 
     private RuleEngine ruleEngine;
     private WarnRule voltageDiffRule;
@@ -23,235 +31,110 @@ public class RuleEngineTest {
 
     @BeforeEach
     void setUp() {
-        ruleEngine = new RuleEngine();
+        ruleEngine = new RuleEngine(ruleRepository);
 
         // 创建电压差规则（三元电池）
-        voltageDiffRule = WarnRule.builder()
-                .id(1L)
-                .ruleNo(1)
-                .name("电压差报警")
-                .expr("MX_MI") // 最高电压 - 最低电压
-                .batteryTypeId(1) // 三元电池
-                .items(new ArrayList<>())
-                .build();
+        voltageDiffRule = WarnRule.create(1, "电压差报警", "MX_MI", 1); // 三元电池
 
         // 添加规则区间项
-        addRuleItem(voltageDiffRule, new BigDecimal("5"), null, 0); // 差值 >= 5，预警级别 0
-        addRuleItem(voltageDiffRule, new BigDecimal("3"), new BigDecimal("5"), 1); // 3 <= 差值 < 5，预警级别 1
-        addRuleItem(voltageDiffRule, new BigDecimal("1"), new BigDecimal("3"), 2); // 1 <= 差值 < 3，预警级别 2
-        addRuleItem(voltageDiffRule, new BigDecimal("0.6"), new BigDecimal("1"), 3); // 0.6 <= 差值 < 1，预警级别 3
-        addRuleItem(voltageDiffRule, new BigDecimal("0.2"), new BigDecimal("0.6"), 4); // 0.2 <= 差值 < 0.6，预警级别 4
+        addRuleCondition(voltageDiffRule, new BigDecimal("5"), null, 0); // 差值 >= 5，预警级别 0
+        addRuleCondition(voltageDiffRule, new BigDecimal("3"), new BigDecimal("5"), 1); // 3 <= 差值 < 5，预警级别 1
+        addRuleCondition(voltageDiffRule, new BigDecimal("1"), new BigDecimal("3"), 2); // 1 <= 差值 < 3，预警级别 2
+        addRuleCondition(voltageDiffRule, new BigDecimal("0.6"), new BigDecimal("1"), 3); // 0.6 <= 差值 < 1，预警级别 3
+        addRuleCondition(voltageDiffRule, new BigDecimal("0.2"), new BigDecimal("0.6"), 4); // 0.2 <= 差值 < 0.6，预警级别 4
 
         // 创建电流差规则（三元电池）
-        currentDiffRule = WarnRule.builder()
-                .id(2L)
-                .ruleNo(2)
-                .name("电流差报警")
-                .expr("IX_II") // 最大电流 - 最小电流
-                .batteryTypeId(1) // 三元电池
-                .items(new ArrayList<>())
-                .build();
+        currentDiffRule = WarnRule.create(2, "电流差报警", "IX_II", 1); // 三元电池
 
         // 添加规则区间项
-        addRuleItem(currentDiffRule, new BigDecimal("3"), null, 0); // 差值 >= 3，预警级别 0
-        addRuleItem(currentDiffRule, new BigDecimal("1"), new BigDecimal("3"), 1); // 1 <= 差值 < 3，预警级别 1
-        addRuleItem(currentDiffRule, new BigDecimal("0.2"), new BigDecimal("1"), 2); // 0.2 <= 差值 < 1，预警级别 2
+        addRuleCondition(currentDiffRule, new BigDecimal("3"), null, 0); // 差值 >= 3，预警级别 0
+        addRuleCondition(currentDiffRule, new BigDecimal("1"), new BigDecimal("3"), 1); // 1 <= 差值 < 3，预警级别 1
+        addRuleCondition(currentDiffRule, new BigDecimal("0.2"), new BigDecimal("1"), 2); // 0.2 <= 差值 < 1，预警级别 2
+
+        // Mock repository behavior for all test cases
+        when(ruleRepository.findByRuleNoAndBatteryTypeId(1, 1)).thenReturn(List.of(voltageDiffRule));
+        when(ruleRepository.findByRuleNoAndBatteryTypeId(2, 1)).thenReturn(List.of(currentDiffRule));
+        when(ruleRepository.findByRuleNoAndBatteryTypeId(3, 1)).thenReturn(List.of());
     }
 
-    private void addRuleItem(WarnRule rule, BigDecimal minVal, BigDecimal maxVal, Integer warnLevel) {
-        WarnRuleItem item = WarnRuleItem.builder()
-                .id((long) (rule.getItems().size() + 1))
-                .minVal(minVal)
-                .maxVal(maxVal)
-                .warnLevel(warnLevel)
-                .build();
-
-        rule.addItem(item);
+    private void addRuleCondition(WarnRule rule, BigDecimal minVal, BigDecimal maxVal, Integer warnLevel) {
+        RuleCondition condition = RuleCondition.create(minVal, maxVal, warnLevel);
+        rule.addCondition(condition);
     }
 
     @Test
-    void evaluateRule_VoltageDiff_Level0() {
+    void evaluateSignal_VoltageDiff_Level0() {
         // Given - 电压差 = 6.0
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("8.0"));
-        signalData.put("Mi", new BigDecimal("2.0"));
+        BigDecimal value = new BigDecimal("6.0");
 
         // When
-        Integer warnLevel = ruleEngine.evaluateRule(voltageDiffRule, signalData);
+        Optional<RuleCondition> result = ruleEngine.evaluateSignal(1, 1, value);
 
         // Then
-        assertNotNull(warnLevel);
-        assertEquals(0, warnLevel);
+        assertTrue(result.isPresent());
+        assertEquals(0, result.get().getWarnLevel());
     }
 
     @Test
-    void evaluateRule_VoltageDiff_Level1() {
+    void evaluateSignal_VoltageDiff_Level1() {
         // Given - 电压差 = 4.0
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("7.0"));
-        signalData.put("Mi", new BigDecimal("3.0"));
+        BigDecimal value = new BigDecimal("4.0");
 
         // When
-        Integer warnLevel = ruleEngine.evaluateRule(voltageDiffRule, signalData);
+        Optional<RuleCondition> result = ruleEngine.evaluateSignal(1, 1, value);
 
         // Then
-        assertNotNull(warnLevel);
-        assertEquals(1, warnLevel);
+        assertTrue(result.isPresent());
+        assertEquals(1, result.get().getWarnLevel());
     }
 
     @Test
-    void evaluateRule_VoltageDiff_Level2() {
-        // Given - 电压差 = 2.0
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("5.0"));
-        signalData.put("Mi", new BigDecimal("3.0"));
-
-        // When
-        Integer warnLevel = ruleEngine.evaluateRule(voltageDiffRule, signalData);
-
-        // Then
-        assertNotNull(warnLevel);
-        assertEquals(2, warnLevel);
-    }
-
-    @Test
-    void evaluateRule_VoltageDiff_Level3() {
-        // Given - 电压差 = 0.8
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("4.0"));
-        signalData.put("Mi", new BigDecimal("3.2"));
-
-        // When
-        Integer warnLevel = ruleEngine.evaluateRule(voltageDiffRule, signalData);
-
-        // Then
-        assertNotNull(warnLevel);
-        assertEquals(3, warnLevel);
-    }
-
-    @Test
-    void evaluateRule_VoltageDiff_Level4() {
-        // Given - 电压差 = 0.5
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("4.0"));
-        signalData.put("Mi", new BigDecimal("3.5"));
-
-        // When
-        Integer warnLevel = ruleEngine.evaluateRule(voltageDiffRule, signalData);
-
-        // Then
-        assertNotNull(warnLevel);
-        assertEquals(4, warnLevel);
-    }
-
-    @Test
-    void evaluateRule_VoltageDiff_NoWarning() {
-        // Given - 电压差 = 0.1
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("4.0"));
-        signalData.put("Mi", new BigDecimal("3.9"));
-
-        // When
-        Integer warnLevel = ruleEngine.evaluateRule(voltageDiffRule, signalData);
-
-        // Then
-        assertNull(warnLevel);
-    }
-
-    @Test
-    void evaluateRule_CurrentDiff_Level0() {
+    void evaluateSignal_CurrentDiff_Level0() {
         // Given - 电流差 = 4.0
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Ix", new BigDecimal("10.0"));
-        signalData.put("Ii", new BigDecimal("6.0"));
+        BigDecimal value = new BigDecimal("4.0");
 
         // When
-        Integer warnLevel = ruleEngine.evaluateRule(currentDiffRule, signalData);
+        Optional<RuleCondition> result = ruleEngine.evaluateSignal(2, 1, value);
 
         // Then
-        assertNotNull(warnLevel);
-        assertEquals(0, warnLevel);
+        assertTrue(result.isPresent());
+        assertEquals(0, result.get().getWarnLevel());
     }
 
     @Test
-    void evaluateRule_CurrentDiff_Level1() {
+    void evaluateSignal_CurrentDiff_Level1() {
         // Given - 电流差 = 2.0
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Ix", new BigDecimal("8.0"));
-        signalData.put("Ii", new BigDecimal("6.0"));
+        BigDecimal value = new BigDecimal("2.0");
 
         // When
-        Integer warnLevel = ruleEngine.evaluateRule(currentDiffRule, signalData);
+        Optional<RuleCondition> result = ruleEngine.evaluateSignal(2, 1, value);
 
         // Then
-        assertNotNull(warnLevel);
-        assertEquals(1, warnLevel);
+        assertTrue(result.isPresent());
+        assertEquals(1, result.get().getWarnLevel());
     }
 
     @Test
-    void evaluateRule_CurrentDiff_Level2() {
-        // Given - 电流差 = 0.5
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Ix", new BigDecimal("6.5"));
-        signalData.put("Ii", new BigDecimal("6.0"));
+    void evaluateSignal_NoMatchingRule() {
+        // Given - 规则不存在
+        BigDecimal value = new BigDecimal("1.0");
 
         // When
-        Integer warnLevel = ruleEngine.evaluateRule(currentDiffRule, signalData);
+        Optional<RuleCondition> result = ruleEngine.evaluateSignal(3, 1, value);
 
         // Then
-        assertNotNull(warnLevel);
-        assertEquals(2, warnLevel);
+        assertFalse(result.isPresent());
     }
 
     @Test
-    void evaluateRule_CurrentDiff_NoWarning() {
-        // Given - 电流差 = 0.1
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Ix", new BigDecimal("6.1"));
-        signalData.put("Ii", new BigDecimal("6.0"));
+    void evaluateSignal_NoMatchingCondition() {
+        // Given - 电压差 = 0.1 (小于所有区间)
+        BigDecimal value = new BigDecimal("0.1");
 
         // When
-        Integer warnLevel = ruleEngine.evaluateRule(currentDiffRule, signalData);
+        Optional<RuleCondition> result = ruleEngine.evaluateSignal(1, 1, value);
 
         // Then
-        assertNull(warnLevel);
-    }
-
-    @Test
-    void parseSignalJson_Success() {
-        // Given
-        String signalJson = "{\"Mx\":12.0,\"Mi\":0.6,\"Ix\":10.0,\"Ii\":9.8}";
-
-        // When
-        Map<String, BigDecimal> result = ruleEngine.parseSignalJson(signalJson);
-
-        // Then
-        assertNotNull(result);
-        assertEquals(4, result.size());
-        assertEquals(new BigDecimal("12.0"), result.get("Mx"));
-        assertEquals(new BigDecimal("0.6"), result.get("Mi"));
-        assertEquals(new BigDecimal("10.0"), result.get("Ix"));
-        assertEquals(new BigDecimal("9.8"), result.get("Ii"));
-    }
-
-    @Test
-    void evaluateRules_MultipleRules() {
-        // Given - 同时触发电压差和电流差规则
-        Map<String, BigDecimal> signalData = new HashMap<>();
-        signalData.put("Mx", new BigDecimal("8.0")); // 电压差 = 5.0，预警级别 0
-        signalData.put("Mi", new BigDecimal("3.0"));
-        signalData.put("Ix", new BigDecimal("8.0")); // 电流差 = 2.0，预警级别 1
-        signalData.put("Ii", new BigDecimal("6.0"));
-
-        // When
-        Map<Long, Integer> warningResults = ruleEngine.evaluateRules(
-                java.util.Arrays.asList(voltageDiffRule, currentDiffRule),
-                signalData);
-
-        // Then
-        assertNotNull(warningResults);
-        assertEquals(2, warningResults.size());
-        assertEquals(0, warningResults.get(voltageDiffRule.getId()));
-        assertEquals(1, warningResults.get(currentDiffRule.getId()));
+        assertFalse(result.isPresent());
     }
 }

@@ -2,295 +2,306 @@ package com.mi.bms.rule.application;
 
 import com.mi.bms.rule.application.impl.RuleServiceImpl;
 import com.mi.bms.rule.domain.model.WarnRule;
-import com.mi.bms.rule.domain.model.WarnRuleItem;
+import com.mi.bms.rule.domain.model.WarnRule.RuleCondition;
 import com.mi.bms.rule.domain.repository.WarnRuleRepository;
-import com.mi.bms.rule.interfaces.rest.dto.RuleItemRequest;
-import com.mi.bms.rule.interfaces.rest.dto.WarnRuleRequest;
-import com.mi.bms.rule.interfaces.rest.dto.WarnRuleResponse;
-import com.mi.bms.shared.exceptions.ResourceNotFoundException;
 import com.mi.bms.vehicle.domain.model.BatteryType;
 import com.mi.bms.vehicle.domain.repository.BatteryTypeRepository;
+import com.mi.bms.vehicle.interfaces.rest.dto.RuleConditionRequest;
+import com.mi.bms.vehicle.interfaces.rest.dto.RuleRequest;
+import com.mi.bms.vehicle.interfaces.rest.dto.RuleResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import org.junit.jupiter.api.Disabled;
 
-// 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class RuleServiceTest {
+class RuleServiceTest {
 
         @Mock
         private WarnRuleRepository ruleRepository;
-
         @Mock
         private BatteryTypeRepository batteryTypeRepository;
 
-        @Mock
-        private RedisTemplate<String, Object> redisTemplate;
-
-        @Mock
-        private ValueOperations<String, Object> valueOperations;
-
-        @InjectMocks
-        private RuleServiceImpl ruleServiceImpl;
+        @Captor
+        private ArgumentCaptor<WarnRule> ruleCaptor;
 
         private RuleService ruleService;
-
-        private BatteryType ternaryBatteryType;
-        private WarnRule warnRule;
-        private WarnRuleRequest warnRuleRequest;
+        private BatteryType batteryType;
 
         @BeforeEach
         void setUp() {
-                // Cast the implementation to the interface to avoid ambiguity
-                ruleService = ruleServiceImpl;
+                ruleService = new RuleServiceImpl(ruleRepository, batteryTypeRepository);
 
-                // Setup Redis mock
-                when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-
-                // 初始化测试数据
-                ternaryBatteryType = BatteryType.builder()
-                                .id(1)
-                                .code("TERNARY")
-                                .name("三元电池")
-                                .build();
-
-                // 创建预警规则
-                warnRule = WarnRule.builder()
-                                .id(1L)
-                                .ruleNo(1)
-                                .name("电压差报警")
-                                .expr("MX_MI")
-                                .batteryTypeId(1)
-                                .items(new ArrayList<>())
-                                .createdAt(LocalDateTime.now())
-                                .updatedAt(LocalDateTime.now())
-                                .build();
-
-                // 添加规则区间项
-                WarnRuleItem item1 = WarnRuleItem.builder()
-                                .id(1L)
-                                .minVal(new BigDecimal("5"))
-                                .maxVal(null)
-                                .warnLevel(0)
-                                .build();
-                item1.setRule(warnRule);
-                warnRule.getItems().add(item1);
-
-                WarnRuleItem item2 = WarnRuleItem.builder()
-                                .id(2L)
-                                .minVal(new BigDecimal("3"))
-                                .maxVal(new BigDecimal("5"))
-                                .warnLevel(1)
-                                .build();
-                item2.setRule(warnRule);
-                warnRule.getItems().add(item2);
-
-                // 创建预警规则请求
-                List<RuleItemRequest> itemRequests = Arrays.asList(
-                                RuleItemRequest.builder().minVal(new BigDecimal("5")).maxVal(null).warnLevel(0).build(),
-                                RuleItemRequest.builder().minVal(new BigDecimal("3")).maxVal(new BigDecimal("5"))
-                                                .warnLevel(1).build());
-
-                warnRuleRequest = WarnRuleRequest.builder()
-                                .ruleNo(1)
-                                .name("电压差报警")
-                                .expr("MX_MI")
-                                .batteryTypeCode("TERNARY")
-                                .items(itemRequests)
-                                .build();
+                // Setup battery type
+                batteryType = mock(BatteryType.class);
+                when(batteryType.getId()).thenReturn(1);
+                when(batteryType.getCode()).thenReturn("TERNARY");
+                when(batteryType.getName()).thenReturn("三元电池");
+                when(batteryTypeRepository.findById(1)).thenReturn(Optional.of(batteryType));
         }
 
         @Test
-        @Disabled("暂时禁用，NullPointerException需要后续排查")
-        void createRule_Success() {
-                // Prepare test data
-                when(batteryTypeRepository.findByCode("TERNARY")).thenReturn(Optional.of(ternaryBatteryType));
+        void createRule_ShouldCreateNewRule() {
+                // Given
+                when(ruleRepository.existsByRuleNo(1)).thenReturn(false);
 
-                // Create a saved rule with properly initialized collections
-                WarnRule savedRule = new WarnRule();
-                savedRule.setId(1L);
-                savedRule.setRuleNo(1);
-                savedRule.setName("电压差报警");
-                savedRule.setExpr("MX_MI");
-                savedRule.setBatteryTypeId(1);
+                RuleRequest request = new RuleRequest();
+                request.setRuleNo(1);
+                request.setName("电压差报警");
+                request.setExpr("MX_MI");
+                request.setBatteryTypeId(1);
 
-                // Set up the mock repository to return our prepared rule
-                when(ruleRepository.save(any())).thenReturn(savedRule);
+                List<RuleConditionRequest> conditions = new ArrayList<>();
+                RuleConditionRequest condition1 = new RuleConditionRequest();
+                condition1.setMinVal(new BigDecimal("5"));
+                condition1.setMaxVal(null);
+                condition1.setWarnLevel(0);
+                conditions.add(condition1);
 
-                // Execute the method under test
-                WarnRuleResponse response = ruleService.createRule(warnRuleRequest);
+                RuleConditionRequest condition2 = new RuleConditionRequest();
+                condition2.setMinVal(new BigDecimal("3"));
+                condition2.setMaxVal(new BigDecimal("5"));
+                condition2.setWarnLevel(1);
+                conditions.add(condition2);
 
-                // Verify the results
+                request.setConditions(conditions);
+
+                // Mock the save behavior to return the saved rule
+                when(ruleRepository.save(any(WarnRule.class))).thenAnswer(invocation -> {
+                        WarnRule rule = invocation.getArgument(0);
+                        // Create a new rule with the same properties and conditions
+                        WarnRule savedRule = WarnRule.create(rule.getRuleNo(), rule.getName(), rule.getExpr(),
+                                        rule.getBatteryTypeId());
+                        // Copy all conditions from the input rule
+                        rule.getConditions().forEach(condition -> {
+                                RuleCondition newCondition = RuleCondition.create(
+                                                condition.getMinVal(),
+                                                condition.getMaxVal(),
+                                                condition.getWarnLevel());
+                                savedRule.addCondition(newCondition);
+                        });
+                        return savedRule;
+                });
+
+                // When
+                RuleResponse response = ruleService.createRule(request);
+
+                // Then
                 assertNotNull(response);
-                assertEquals(1L, response.getId());
                 assertEquals(1, response.getRuleNo());
                 assertEquals("电压差报警", response.getName());
                 assertEquals("MX_MI", response.getExpr());
                 assertEquals("TERNARY", response.getBatteryTypeCode());
+                assertEquals("三元电池", response.getBatteryTypeName());
+                assertEquals(2, response.getConditions().size());
 
-                // Verify the interactions
-                verify(batteryTypeRepository).findByCode(warnRuleRequest.getBatteryTypeCode());
-                verify(ruleRepository).save(any());
-                verify(redisTemplate).delete(anyString());
+                verify(ruleRepository).save(ruleCaptor.capture());
+                WarnRule savedRule = ruleCaptor.getValue();
+                assertEquals(1, savedRule.getRuleNo());
+                assertEquals("电压差报警", savedRule.getName());
+                assertEquals("MX_MI", savedRule.getExpr());
+                assertEquals(1, savedRule.getBatteryTypeId());
+                assertEquals(2, savedRule.getConditions().size());
         }
 
         @Test
-        void createRule_InvalidBatteryType_ThrowsException() {
+        void createRule_ShouldThrowExceptionWhenRuleNoExists() {
                 // Given
-                when(batteryTypeRepository.findByCode(anyString())).thenReturn(Optional.empty());
+                when(ruleRepository.existsByRuleNo(1)).thenReturn(true);
+
+                RuleRequest request = new RuleRequest();
+                request.setRuleNo(1);
+                request.setName("电压差报警");
+                request.setExpr("MX_MI");
+                request.setBatteryTypeId(1);
 
                 // When & Then
-                ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
-                                () -> ruleService.createRule(warnRuleRequest));
-
-                // 仅检查异常消息是否包含关键词
-                assertNotNull(exception.getMessage());
-                assertTrue(exception.getMessage().contains("BatteryType"));
-                assertTrue(exception.getMessage().contains("code"));
-                assertTrue(exception.getMessage().contains(warnRuleRequest.getBatteryTypeCode()));
-
-                verify(batteryTypeRepository).findByCode(warnRuleRequest.getBatteryTypeCode());
-                verify(ruleRepository, never()).save(any(WarnRule.class));
-                verify(redisTemplate, never()).delete(anyString());
+                assertThrows(RuntimeException.class, () -> ruleService.createRule(request));
+                verify(ruleRepository, never()).save(any());
         }
 
         @Test
-        void getRuleById_Success() {
+        void updateRule_ShouldUpdateExistingRule() {
                 // Given
-                when(ruleRepository.findByIdWithItems(anyLong())).thenReturn(Optional.of(warnRule));
-                when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+                WarnRule existingRule = WarnRule.create(1, "电压差报警", "MX_MI", 1);
+                when(ruleRepository.findById(1L)).thenReturn(Optional.of(existingRule));
+                when(ruleRepository.existsByRuleNo(1)).thenReturn(true);
+
+                RuleRequest request = new RuleRequest();
+                request.setRuleNo(1);
+                request.setName("电压差报警(更新)");
+                request.setExpr("MX_MI");
+                request.setBatteryTypeId(1);
+
+                List<RuleConditionRequest> conditions = new ArrayList<>();
+                RuleConditionRequest condition1 = new RuleConditionRequest();
+                condition1.setMinVal(new BigDecimal("5"));
+                condition1.setMaxVal(null);
+                condition1.setWarnLevel(0);
+                conditions.add(condition1);
+
+                RuleConditionRequest condition2 = new RuleConditionRequest();
+                condition2.setMinVal(new BigDecimal("3"));
+                condition2.setMaxVal(new BigDecimal("5"));
+                condition2.setWarnLevel(1);
+                conditions.add(condition2);
+
+                request.setConditions(conditions);
+
+                // Mock the save behavior to return the updated rule
+                when(ruleRepository.save(any(WarnRule.class))).thenAnswer(invocation -> {
+                        WarnRule rule = invocation.getArgument(0);
+                        // Create a new rule with the same properties and conditions
+                        WarnRule savedRule = WarnRule.create(rule.getRuleNo(), rule.getName(), rule.getExpr(),
+                                        rule.getBatteryTypeId());
+                        // Copy all conditions from the input rule
+                        rule.getConditions().forEach(condition -> {
+                                RuleCondition newCondition = RuleCondition.create(
+                                                condition.getMinVal(),
+                                                condition.getMaxVal(),
+                                                condition.getWarnLevel());
+                                savedRule.addCondition(newCondition);
+                        });
+                        return savedRule;
+                });
 
                 // When
-                WarnRuleResponse response = ruleService.getRuleById(1L);
+                RuleResponse response = ruleService.updateRule(1L, request);
 
                 // Then
                 assertNotNull(response);
-                assertEquals(warnRule.getId(), response.getId());
-                assertEquals(warnRule.getRuleNo(), response.getRuleNo());
-                assertEquals(warnRule.getName(), response.getName());
-                assertEquals(warnRule.getExpr(), response.getExpr());
-                assertEquals(ternaryBatteryType.getCode(), response.getBatteryTypeCode());
-                assertEquals(ternaryBatteryType.getName(), response.getBatteryTypeName());
-                assertEquals(2, response.getItems().size());
+                assertEquals(1, response.getRuleNo());
+                assertEquals("电压差报警(更新)", response.getName());
+                assertEquals("MX_MI", response.getExpr());
+                assertEquals("TERNARY", response.getBatteryTypeCode());
+                assertEquals("三元电池", response.getBatteryTypeName());
+                assertEquals(2, response.getConditions().size());
 
-                verify(ruleRepository).findByIdWithItems(1L);
-                verify(batteryTypeRepository).findById(warnRule.getBatteryTypeId());
+                verify(ruleRepository).save(ruleCaptor.capture());
+                WarnRule updatedRule = ruleCaptor.getValue();
+                assertEquals(1, updatedRule.getRuleNo());
+                assertEquals("电压差报警(更新)", updatedRule.getName());
+                assertEquals("MX_MI", updatedRule.getExpr());
+                assertEquals(1, updatedRule.getBatteryTypeId());
+                assertEquals(2, updatedRule.getConditions().size());
         }
 
         @Test
-        void getRuleById_NotFound_ThrowsException() {
+        void updateRule_ShouldThrowExceptionWhenRuleNotFound() {
                 // Given
-                when(ruleRepository.findByIdWithItems(anyLong())).thenReturn(Optional.empty());
+                when(ruleRepository.findById(1L)).thenReturn(Optional.empty());
+
+                RuleRequest request = new RuleRequest();
+                request.setRuleNo(1);
+                request.setName("电压差报警");
+                request.setExpr("MX_MI");
+                request.setBatteryTypeId(1);
 
                 // When & Then
-                ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
-                                () -> ruleService.getRuleById(1L));
-
-                // 仅检查异常消息是否包含关键词
-                assertNotNull(exception.getMessage());
-                assertTrue(exception.getMessage().contains("Rule"));
-                assertTrue(exception.getMessage().contains("id"));
-                assertTrue(exception.getMessage().contains("1"));
-
-                verify(ruleRepository).findByIdWithItems(1L);
-                verify(batteryTypeRepository, never()).findById(anyInt());
+                assertThrows(RuntimeException.class, () -> ruleService.updateRule(1L, request));
+                verify(ruleRepository, never()).save(any());
         }
 
         @Test
-        void findRules_ByRuleNoAndBatteryType_Success() {
+        void deleteRule_ShouldMarkRuleAsDeleted() {
                 // Given
-                when(batteryTypeRepository.findByCode(anyString())).thenReturn(Optional.of(ternaryBatteryType));
-                when(ruleRepository.findByRuleNoAndBatteryTypeIdWithItems(anyInt(), anyInt()))
-                                .thenReturn(Arrays.asList(warnRule));
-                when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+                WarnRule rule = WarnRule.create(1, "电压差报警", "MX_MI", 1);
+                when(ruleRepository.findById(1L)).thenReturn(Optional.of(rule));
 
-                // When - explicitly use the service interface method
-                List<WarnRuleResponse> responses = ruleService.findRules(1, "TERNARY");
+                // Mock the save behavior to return the deleted rule
+                when(ruleRepository.save(any(WarnRule.class))).thenAnswer(invocation -> {
+                        WarnRule savedRule = invocation.getArgument(0);
+                        savedRule.markAsDeleted();
+                        return savedRule;
+                });
+
+                // When
+                ruleService.deleteRule(1L);
 
                 // Then
-                assertNotNull(responses);
-                assertEquals(1, responses.size());
-
-                WarnRuleResponse response = responses.get(0);
-                assertEquals(warnRule.getId(), response.getId());
-                assertEquals(warnRule.getRuleNo(), response.getRuleNo());
-                assertEquals(warnRule.getName(), response.getName());
-
-                verify(batteryTypeRepository).findByCode("TERNARY");
-                verify(ruleRepository).findByRuleNoAndBatteryTypeIdWithItems(1, ternaryBatteryType.getId());
-                verify(batteryTypeRepository).findById(warnRule.getBatteryTypeId());
+                verify(ruleRepository).save(ruleCaptor.capture());
+                WarnRule deletedRule = ruleCaptor.getValue();
+                assertTrue(deletedRule.isDeleted());
         }
 
         @Test
-        void findRules_ByRuleNo_Success() {
+        void deleteRule_ShouldThrowExceptionWhenRuleNotFound() {
                 // Given
-                when(ruleRepository.findByRuleNo(anyInt())).thenReturn(Arrays.asList(warnRule));
-                when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+                when(ruleRepository.findById(1L)).thenReturn(Optional.empty());
 
-                // When - pass Integer for ruleNo and null for batteryTypeCode
-                List<WarnRuleResponse> responses = ((RuleService) ruleServiceImpl).findRules(1, null);
-
-                // Then
-                assertNotNull(responses);
-                assertEquals(1, responses.size());
-
-                verify(ruleRepository).findByRuleNo(1);
-                verify(batteryTypeRepository).findById(warnRule.getBatteryTypeId());
+                // When & Then
+                assertThrows(RuntimeException.class, () -> ruleService.deleteRule(1L));
+                verify(ruleRepository, never()).save(any());
         }
 
         @Test
-        void findRules_ByBatteryType_Success() {
+        void getRuleById_ShouldReturnRule() {
                 // Given
-                when(batteryTypeRepository.findByCode(anyString())).thenReturn(Optional.of(ternaryBatteryType));
-                when(ruleRepository.findByBatteryTypeId(anyInt())).thenReturn(Arrays.asList(warnRule));
-                when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+                WarnRule rule = WarnRule.create(1, "电压差报警", "MX_MI", 1);
+                when(ruleRepository.findById(1L)).thenReturn(Optional.of(rule));
 
-                // When - pass null for ruleNo and String for batteryTypeCode
-                List<WarnRuleResponse> responses = ((RuleService) ruleServiceImpl).findRules(null, "TERNARY");
+                // When
+                RuleResponse response = ruleService.getRuleById(1L);
 
                 // Then
-                assertNotNull(responses);
-                assertEquals(1, responses.size());
-
-                verify(batteryTypeRepository).findByCode("TERNARY");
-                verify(ruleRepository).findByBatteryTypeId(ternaryBatteryType.getId());
-                verify(batteryTypeRepository).findById(warnRule.getBatteryTypeId());
+                assertNotNull(response);
+                assertEquals(1, response.getRuleNo());
+                assertEquals("电压差报警", response.getName());
+                assertEquals("MX_MI", response.getExpr());
+                assertEquals("TERNARY", response.getBatteryTypeCode());
+                assertEquals("三元电池", response.getBatteryTypeName());
         }
 
         @Test
-        void findRules_All_Success() {
+        void getRuleById_ShouldThrowExceptionWhenRuleNotFound() {
                 // Given
-                when(ruleRepository.findAll()).thenReturn(Arrays.asList(warnRule));
-                when(batteryTypeRepository.findById(anyInt())).thenReturn(Optional.of(ternaryBatteryType));
+                when(ruleRepository.findById(1L)).thenReturn(Optional.empty());
 
-                // When - both params are null, explicitly cast to RuleService
-                List<WarnRuleResponse> responses = ((RuleService) ruleServiceImpl).findRules(null, null);
+                // When & Then
+                assertThrows(RuntimeException.class, () -> ruleService.getRuleById(1L));
+        }
+
+        @Test
+        void getAllRules_ShouldReturnAllRules() {
+                // Given
+                WarnRule rule1 = WarnRule.create(1, "电压差报警", "MX_MI", 1);
+                WarnRule rule2 = WarnRule.create(2, "电流差报警", "IX_II", 1);
+                when(ruleRepository.findAll()).thenReturn(List.of(rule1, rule2));
+
+                // When
+                List<RuleResponse> responses = ruleService.getAllRules();
 
                 // Then
                 assertNotNull(responses);
-                assertEquals(1, responses.size());
+                assertEquals(2, responses.size());
 
-                verify(ruleRepository).findAll();
-                verify(batteryTypeRepository).findById(warnRule.getBatteryTypeId());
+                RuleResponse response1 = responses.get(0);
+                assertEquals(1, response1.getRuleNo());
+                assertEquals("电压差报警", response1.getName());
+                assertEquals("MX_MI", response1.getExpr());
+                assertEquals("TERNARY", response1.getBatteryTypeCode());
+                assertEquals("三元电池", response1.getBatteryTypeName());
+
+                RuleResponse response2 = responses.get(1);
+                assertEquals(2, response2.getRuleNo());
+                assertEquals("电流差报警", response2.getName());
+                assertEquals("IX_II", response2.getExpr());
+                assertEquals("TERNARY", response2.getBatteryTypeCode());
+                assertEquals("三元电池", response2.getBatteryTypeName());
         }
 }
