@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bms-mysql
+    restart: always
+    platform: linux/arm64/v8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bms
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./src/main/resources/script.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  redis:
+    image: redis:7.0
+    container_name: bms-redis
+    restart: always
+    platform: linux/arm64/v8
+    ports:
+      - "16379:6379"
+    volumes:
+      - redis-data:/data
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:4.9.3
+    container_name: bms-rocketmq-namesrv
+    restart: always
+    ports:
+      - "19876:9876"
+    volumes:
+      - rocketmq-namesrv-logs:/home/rocketmq/logs
+      - rocketmq-namesrv-store:/home/rocketmq/store
+    command: sh mqnamesrv
+
+  rocketmq-broker:
+    image: apache/rocketmq:4.9.3
+    container_name: bms-rocketmq-broker
+    restart: always
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+    volumes:
+      - rocketmq-broker-logs:/home/rocketmq/logs
+      - rocketmq-broker-store:/home/rocketmq/store
+      - ./broker.conf:/home/rocketmq/conf/broker.conf
+    environment:
+      NAMESRV_ADDR: "rocketmq-namesrv:9876"
+    command: sh mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/conf/broker.conf
+    depends_on:
+      - rocketmq-namesrv
+
+volumes:
+  mysql-data:
+  redis-data:
+  rocketmq-namesrv-logs:
+  rocketmq-namesrv-store:
+  rocketmq-broker-logs:
+  rocketmq-broker-store:

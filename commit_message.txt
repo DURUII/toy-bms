@@ -1,0 +1,13 @@
+feat: 从Springfox迁移到SpringDoc OpenAPI并改进运行环境
+
+迁移Swagger文档框架，解决Spring Boot 2.6+兼容性问题，并优化系统运行环境。
+
+主要变更:
+- 替换过时的Springfox为SpringDoc OpenAPI
+- 更新所有控制器的API注解(@Api→@Tag, @ApiOperation→@Operation)
+- 修复规则管理DTO类不一致和实体映射问题
+- 添加Docker Compose配置简化开发环境搭建
+- 改进数据库初始化流程
+- 更新文档，添加详细运行说明
+
+相关问题: #无 

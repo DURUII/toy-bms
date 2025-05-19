@@ -1,0 +1,69 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: battery-management-system
+
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:bms}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 30000
+
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # Redis配置
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    database: 0
+    timeout: 10000
+    lettuce:
+      pool:
+        max-active: 16
+        max-wait: -1
+        max-idle: 8
+        min-idle: 4
+
+# RocketMQ配置
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: bms-producer-group
+    send-message-timeout: 3000
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.mi.bms: INFO
+    org.hibernate.SQL: WARN
+  file:
+    name: ${LOG_PATH:/var/log/bms}/bms.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 30
+
+# 禁用Swagger
+springfox:
+  documentation:
+    enabled: false
+    swagger:
+      v2:
+        enabled: false

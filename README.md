@@ -193,6 +193,99 @@ com.mi.bms
 | **缓存一致性**                      | EmbeddedRedis                            | 写 warning 后 Redis 应同步更新                                    |
 | **覆盖率**                        | JaCoCo                                   | 行+分支 ≥ 100 %（按作业要求）                                        |
 
-> 压测用 wrk/JMH 独立进行，不算单元测试范围。
+# 运行指南
 
+## 系统环境要求
+
+- JDK 17
+- Maven 3.6+
+- Docker 和 Docker Compose
+
+## 准备环境
+
+### 1. 启动必要的服务 (MySQL, Redis, RocketMQ)
+
+项目依赖以下服务：
+- MySQL 数据库
+- Redis 缓存
+- RocketMQ 消息队列
+
+通过Docker Compose一键启动所有依赖服务：
+
+```bash
+# 启动所有服务容器
+docker-compose up -d
+```
+
+容器启动后，可以通过以下命令检查状态：
+
+```bash
+# 查看容器运行状态
+docker ps
+```
+
+### 2. 准备数据库
+
+项目使用JPA自动创建表结构，但如需手动导入初始数据，可执行：
+
+```bash
+# 导入SQL到MySQL容器
+docker exec -i bms-mysql mysql -uroot -proot bms < create_tables.sql
+```
+
+## 运行应用
+
+### 开发环境运行
+
+```bash
+# 运行应用（开发环境配置）
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+### 生产环境打包和运行
+
+```bash
+# 打包应用
+mvn clean package -DskipTests
+
+# 以生产环境配置运行
+java -jar target/bms-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+### 运行单元测试
+
+```bash
+# 运行所有测试
+mvn test
+
+# 运行特定测试
+mvn test -Dtest=RuleServiceTest
+
+# 生成测试覆盖率报告
+mvn verify
+```
+
+测试覆盖率报告将生成在 `target/site/jacoco` 目录下。
+
+## 使用 Swagger 文档
+
+项目集成了 SpringDoc OpenAPI，可通过以下方式访问API文档：
+
+1. **Swagger UI界面**：
+   - 访问 http://localhost:8080/swagger-ui.html
+   - 可以在Web界面查看并测试所有API端点
+
+2. **OpenAPI规范文档**：
+   - 访问 http://localhost:8080/api-docs
+   - 获取完整的OpenAPI 3规范JSON文档
+
+## 系统验证
+
+1. 系统启动成功后，日志中将显示 Spring Boot 启动信息
+2. 访问 Swagger UI 确认 API 文档可访问
+3. 检查数据库表创建情况：
+   ```bash
+   docker exec bms-mysql mysql -uroot -proot -e "SHOW TABLES FROM bms"
+   ```
+4. 通过Swagger UI或其他工具测试API接口
 

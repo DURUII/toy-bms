@@ -1,7 +1,7 @@
 package com.mi.bms.rule.application;
 
-import com.mi.bms.vehicle.interfaces.rest.dto.RuleRequest;
-import com.mi.bms.vehicle.interfaces.rest.dto.RuleResponse;
+import com.mi.bms.rule.interfaces.rest.dto.RuleRequest;
+import com.mi.bms.rule.interfaces.rest.dto.RuleResponse;
 
 import javax.validation.Valid;
 import java.util.List;
@@ -32,4 +32,14 @@ public interface RuleService {
      * 获取所有规则
      */
     List<RuleResponse> getAllRules();
+
+    /**
+     * 根据规则编号和电池类型获取规则
+     */
+    List<RuleResponse> getRulesByRuleNoAndBatteryTypeId(Integer ruleNo, Integer batteryTypeId);
+
+    /**
+     * 根据电池类型获取规则
+     */
+    List<RuleResponse> getRulesByBatteryTypeId(Integer batteryTypeId);
 }

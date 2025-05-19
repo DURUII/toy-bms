@@ -9,7 +9,7 @@ import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "warnings")
+@Table(name = "warning")
 @Where(clause = "is_delete = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

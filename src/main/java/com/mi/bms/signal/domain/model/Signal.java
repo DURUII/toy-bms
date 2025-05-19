@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Entity
-@Table(name = "signals")
+@Table(name = "signal")
 @Where(clause = "is_delete = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -44,7 +44,8 @@ public class Signal {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Embedded
+    // Use the embedded values for calculation, but don't persist them
+    @Transient
     private SignalValues values;
 
     @PrePersist
