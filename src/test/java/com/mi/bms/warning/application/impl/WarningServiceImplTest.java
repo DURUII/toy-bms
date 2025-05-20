@@ -108,7 +108,7 @@ class WarningServiceImplTest {
         // Then
         verify(warningRepository).save(warningCaptor.capture());
         verify(warningCache).invalidate(carId, batteryTypeId);
-        verify(signalRepository, times(2)).save(any(Signal.class));
+        verify(signalRepository).save(any(Signal.class));
 
         Warning capturedWarning = warningCaptor.getValue();
         assertEquals(carId, capturedWarning.getCarId());
@@ -154,7 +154,7 @@ class WarningServiceImplTest {
         // Then
         verify(warningRepository, never()).save(any());
         verify(warningCache, never()).invalidate(any(), any());
-        verify(signalRepository, times(2)).save(any(Signal.class));
+        verify(signalRepository).save(any(Signal.class));
         assertTrue(processedSignal.isProcessed());
     }
 

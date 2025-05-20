@@ -20,14 +20,20 @@ public class SignalConsumer implements RocketMQListener<String> {
 
     @Override
     public void onMessage(String message) {
+        log.info("==== SIGNAL CONSUMPTION START ==== Received message: {}", message);
         try {
             Signal signal = objectMapper.readValue(message, Signal.class);
-            log.info("Received signal message: {}", signal.getId());
+            log.info("Deserialized signal message with ID: {}, carId: {}, batteryTypeId: {}",
+                    signal.getId(), signal.getCarId(), signal.getBatteryTypeId());
 
+            log.info("Forwarding signal to warning service for processing...");
             // 生成预警
             warningService.generateWarning(signal.getId());
+            log.info("Warning generation completed for signal ID: {}", signal.getId());
+
+            log.info("==== SIGNAL CONSUMPTION COMPLETE ==== Successfully processed signal ID: {}", signal.getId());
         } catch (Exception e) {
-            log.error("Failed to process signal message: {}", message, e);
+            log.error("==== SIGNAL CONSUMPTION FAILED ==== Error processing message: {}", message, e);
             // TODO: 考虑重试或死信队列
         }
     }

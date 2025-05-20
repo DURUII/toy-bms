@@ -10,6 +10,7 @@ import com.mi.bms.vehicle.domain.model.BatteryType;
 import com.mi.bms.vehicle.domain.model.Vehicle;
 import com.mi.bms.vehicle.domain.repository.BatteryTypeRepository;
 import com.mi.bms.vehicle.domain.service.VehicleDomainService;
+import com.mi.bms.warning.application.WarningService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -47,6 +49,10 @@ class SignalServiceImplTest {
     private SignalProducer signalProducer;
     @Mock
     private ObjectMapper objectMapper;
+    @Mock
+    private PlatformTransactionManager transactionManager;
+    @Mock
+    private WarningService warningService;
 
     @Captor
     private ArgumentCaptor<Signal> signalCaptor;
@@ -61,7 +67,9 @@ class SignalServiceImplTest {
                 vehicleDomainService,
                 batteryTypeRepository,
                 signalProducer,
-                objectMapper);
+                objectMapper,
+                transactionManager,
+                warningService);
     }
 
     @Test

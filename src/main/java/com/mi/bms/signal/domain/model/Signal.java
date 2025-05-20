@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Entity
-@Table(name = "signal")
+@Table(name = "`signal`")
 @Where(clause = "is_delete = false")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

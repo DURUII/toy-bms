@@ -87,74 +87,189 @@
 - 领域层：数据模型与数据操作
 - 基础设施：MySQL/Redis/MQ第三方中间件
 
+# 电池管理系统 (BMS) 项目结构
+
 ```
-com.mi.bms
+src/
+├── main/                          # 主代码目录
+│   ├── java/                      # Java源代码
+│   │   └── com/mi/bms/            # 主包
+│   │       ├── BmsApplication.java                # 应用程序入口点
+│   │       │
+│   │       ├── shared/            # 共享组件和工具类
+│   │       │   ├── config/        # 应用配置类
+│   │       │   │   ├── RedisConfig.java          # Redis缓存配置
+│   │       │   │   ├── SwaggerConfig.java        # Swagger API文档配置
+│   │       │   │   └── WebMvcConfig.java         # Spring MVC配置(处理UTF-8字符编码等)
+│   │       │   │
+│   │       │   ├── domain/        # 共享领域模型
+│   │       │   │   └── ValueObject.java          # 值对象基础接口
+│   │       │   │
+│   │       │   ├── enums/         # 枚举类型
+│   │       │   │   └── BatteryType.java          # 电池类型枚举
+│   │       │   │
+│   │       │   ├── exceptions/    # 自定义异常类
+│   │       │   │   ├── BusinessException.java    # 业务逻辑异常
+│   │       │   │   └── ResourceNotFoundException.java  # 资源未找到异常
+│   │       │   │
+│   │       │   └── web/           # Web层共享组件
+│   │       │       ├── ApiResponse.java          # API响应封装类
+│   │       │       └── GlobalExceptionHandler.java  # 全局异常处理器
+│   │       │
+│   │       ├── signal/            # 信号模块 - 处理电池信号数据
+│   │       │   ├── application/   # 应用服务层
+│   │       │   │   ├── SignalService.java        # 信号服务接口
+│   │       │   │   └── impl/
+│   │       │   │       └── SignalServiceImpl.java  # 信号服务实现类
+│   │       │   │
+│   │       │   ├── domain/        # 领域模型层
+│   │       │   │   ├── model/
+│   │       │   │   │   └── Signal.java           # 信号实体模型
+│   │       │   │   └── repository/
+│   │       │   │       └── SignalRepository.java  # 信号数据访问接口
+│   │       │   │
+│   │       │   ├── infrastructure/ # 基础设施层
+│   │       │   │   └── mq/
+│   │       │   │       └── SignalProducer.java   # 信号消息生产者
+│   │       │   │
+│   │       │   └── interfaces/    # 接口层
+│   │       │       └── rest/
+│   │       │           ├── SignalController.java  # 信号API控制器
+│   │       │           └── dto/   # 数据传输对象
+│   │       │               ├── SignalRequest.java  # 信号请求DTO
+│   │       │               └── SignalResponse.java # 信号响应DTO
+│   │       │
+│   │       ├── vehicle/           # 车辆模块 - 管理车辆和电池类型信息
+│   │       │   ├── application/   # 应用服务层
+│   │       │   │   ├── VehicleService.java       # 车辆服务接口
+│   │       │   │   └── impl/
+│   │       │   │       └── VehicleServiceImpl.java # 车辆服务实现
+│   │       │   │
+│   │       │   ├── domain/        # 领域模型层
+│   │       │   │   ├── model/
+│   │       │   │   │   ├── BatteryType.java      # 电池类型实体
+│   │       │   │   │   └── Vehicle.java          # 车辆实体
+│   │       │   │   ├── repository/
+│   │       │   │   │   ├── BatteryTypeRepository.java  # 电池类型数据访问接口
+│   │       │   │   │   └── VehicleRepository.java      # 车辆数据访问接口
+│   │       │   │   └── service/
+│   │       │   │       └── VehicleDomainService.java   # 车辆领域服务
+│   │       │   │
+│   │       │   └── interfaces/    # 接口层
+│   │       │       └── rest/
+│   │       │           ├── VehicleController.java  # 车辆API控制器
+│   │       │           └── dto/   # 数据传输对象
+│   │       │
+│   │       ├── rule/              # 规则模块 - 定义预警规则和条件
+│   │       │   ├── application/   # 应用服务层
+│   │       │   │   ├── RuleService.java          # 规则服务接口
+│   │       │   │   └── impl/
+│   │       │   │       └── RuleServiceImpl.java   # 规则服务实现
+│   │       │   │
+│   │       │   ├── domain/        # 领域模型层
+│   │       │   │   ├── model/
+│   │       │   │   │   └── WarnRule.java         # 预警规则实体
+│   │       │   │   ├── repository/
+│   │       │   │   │   └── WarnRuleRepository.java  # 预警规则数据访问接口
+│   │       │   │   └── service/
+│   │       │   │       └── RuleEngine.java       # 规则引擎
+│   │       │   │
+│   │       │   └── interfaces/    # 接口层
+│   │       │       └── rest/
+│   │       │           ├── RuleController.java    # 规则API控制器
+│   │       │           └── dto/   # 数据传输对象
+│   │       │
+│   │       └── warning/           # 预警模块 - 基于规则生成预警
+│   │           ├── application/   # 应用服务层
+│   │           │   ├── WarningService.java       # 预警服务接口
+│   │           │   └── impl/
+│   │           │       └── WarningServiceImpl.java # 预警服务实现
+│   │           │
+│   │           ├── domain/        # 领域模型层
+│   │           │   ├── model/
+│   │           │   │   └── Warning.java          # 预警实体模型
+│   │           │   └── repository/
+│   │           │       └── WarningRepository.java # 预警数据访问接口
+│   │           │
+│   │           ├── infrastructure/ # 基础设施层
+│   │           │   ├── cache/
+│   │           │   │   └── WarningCache.java     # 预警缓存
+│   │           │   └── mq/
+│   │           │       └── SignalConsumer.java   # 信号消息消费者
+│   │           │
+│   │           └── interfaces/    # 接口层
+│   │               └── rest/
+│   │                   ├── WarningController.java # 预警API控制器
+│   │                   └── dto/   # 数据传输对象
+│   │                       └── WarningResponse.java # 预警响应DTO
+│   │
+│   └── resources/                 # 资源文件
+│       ├── application-dev.yml    # 开发环境配置
+│       ├── application-prod.yml   # 生产环境配置
+│       ├── application.properties # 基础配置（包含UTF-8字符编码设置）
+│       └── application.yml        # 通用配置
 │
-├── shared                    ← 共用代码
-│   ├── enums
-│   ├── exceptions
-│   ├── events                ← 领域事件 & DTO 供各 BC 订阅
-│   └── util
-│
-├── vehicle                   ← Vehicle BC
-│   ├── application
-│   │   └── VehicleService.java
-│   ├── domain
-│   │   ├── model            ← Vehicle, VehicleId
-│   │   └── repository
-│   ├── infrastructure
-│   │   └── persistence
-│   └── interfaces
-│       └── rest
-│           └── VehicleController.java
-│
-├── rule                      ← Rule BC
-│   ├── application
-│   │   ├── RuleService.java      ← 增删改查 + 失效缓存
-│   │   └── RuleFacade.java       ← 给其它 BC 暴露只读 API
-│   ├── domain
-│   │   ├── model (WarnRule, Condition)
-│   │   ├── service (RuleEngine)  ← 纯粹领域逻辑
-│   │   └── repository
-│   ├── infrastructure
-│   │   ├── persistence
-│   │   └── mq                 ← rule-update-topic producer
-│   └── interfaces
-│       └── rest/RuleController.java
-│
-├── signal                    ← Signal BC
-│   ├── application
-│   │   └── SignalService.java    ← 上报、缓存一致性
-│   ├── domain
-│   │   ├── model (Signal)
-│   │   └── repository
-│   ├── infrastructure
-│   │   ├── persistence
-│   │   ├── cache/SignalCache.java
-│   │   └── mq/SignalProducer.java
-│   └── interfaces
-│       └── rest/SignalController.java
-│
-├── warning                   ← Warning BC
-│   ├── application
-│   │   ├── WarningGenerator.java ← 消费信号生成预警
-│   │   └── WarningQueryService.java
-│   ├── domain
-│   │   ├── model (Warning)
-│   │   └── repository
-│   ├── infrastructure
-│   │   ├── persistence
-│   │   ├── cache/WarningCache.java
-│   │   ├── mq
-│   │   │   ├── SignalConsumer.java
-│   │   │   └── RuleUpdateListener.java
-│   │   └── scheduler
-│   │       └── SignalScanScheduler.java   ← 补偿扫描 processed=0
-│   └── interfaces
-│       └── rest/WarningController.java
-│
-└── BmsApplication.java        ← Spring Boot 启动入口
+└── test/                          # 测试代码目录
+    ├── java/                      # 测试Java源代码
+    │   └── com/mi/bms/            # 测试主包
+    │       ├── BmsApplicationTests.java          # 应用程序测试类
+    │       ├── TestConfig.java                   # 测试配置类
+    │       ├── rule/              # 规则模块测试
+    │       │   ├── application/
+    │       │   │   └── RuleServiceTest.java      # 规则服务测试
+    │       │   └── domain/
+    │       │       └── service/
+    │       │           └── RuleEngineTest.java   # 规则引擎测试
+    │       │
+    │       ├── signal/            # 信号模块测试
+    │       │   ├── application/
+    │       │   │   └── impl/
+    │       │   │       └── SignalServiceImplTest.java  # 信号服务测试
+    │       │   └── domain/
+    │       │       └── model/
+    │       │           └── SignalTest.java       # 信号模型测试
+    │       │
+    │       ├── vehicle/           # 车辆模块测试
+    │       │   └── application/
+    │       │       └── VehicleServiceTest.java   # 车辆服务测试
+    │       │
+    │       └── warning/           # 预警模块测试
+    │           ├── application/
+    │           │   └── impl/
+    │           │       └── WarningServiceImplTest.java # 预警服务测试
+    │           └── domain/
+    │               └── model/
+    │                   └── WarningTest.java      # 预警模型测试
+    │
+    └── resources/                 # 测试资源
+        └── application-test.yml   # 测试环境配置
 ```
+
+## 架构说明
+
+该项目采用领域驱动设计(DDD)架构，每个功能模块分为四层：
+
+1. **接口层(Interfaces)**: 处理外部请求和响应，包含控制器和DTO
+2. **应用层(Application)**: 协调领域对象和基础设施，实现用例
+3. **领域层(Domain)**: 核心业务逻辑和规则
+4. **基础设施层(Infrastructure)**: 提供技术支持，如数据库访问、消息队列等
+
+## 主要模块说明
+
+### 信号模块(Signal)
+处理从车辆收集的电池信号数据，包括接收、存储和发送到消息队列。
+
+### 车辆模块(Vehicle)
+管理车辆信息和电池类型定义，为其他模块提供基础数据支持。
+
+### 规则模块(Rule)
+定义和管理预警规则，包括规则条件、阈值和触发条件。
+
+### 预警模块(Warning)
+基于规则引擎分析信号数据，生成预警信息，并提供预警查询功能。
+
+## 共享模块(Shared)
+提供跨模块共享的工具、配置和基类，确保系统一致性。
 
 规范：
 1. DTO 默认以Request/Response结尾
@@ -195,12 +310,6 @@ com.mi.bms
 
 # 运行指南
 
-## 系统环境要求
-
-- JDK 17
-- Maven 3.6+
-- Docker 和 Docker Compose
-
 ## 准备环境
 
 ### 1. 启动必要的服务 (MySQL, Redis, RocketMQ)
@@ -225,8 +334,6 @@ docker ps
 ```
 
 ### 2. 准备数据库
-
-项目使用JPA自动创建表结构，但如需手动导入初始数据，可执行：
 
 ```bash
 # 导入SQL到MySQL容器
@@ -263,6 +370,7 @@ mvn test -Dtest=RuleServiceTest
 
 # 生成测试覆盖率报告
 mvn verify
+mvn clean test jacoco:report
 ```
 
 测试覆盖率报告将生成在 `target/site/jacoco` 目录下。
