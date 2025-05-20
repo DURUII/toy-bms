@@ -373,7 +373,7 @@ mvn verify
 mvn clean test jacoco:report
 ```
 
-测试覆盖率报告将生成在 `target/site/jacoco` 目录下。
+测试覆盖率报告将生成在 `target/site/jacoco` 目录下，访问 `target/site/jacoco/index.html` 查看。
 
 ## 使用 Swagger 文档
 
